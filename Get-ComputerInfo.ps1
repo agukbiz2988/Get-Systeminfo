@@ -1,3 +1,18 @@
+Add-Type -AssemblyName System.Windows.Forms
+
+$folderDialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$folderDialog.Description = "Select folder to save system inventory CSV files"
+$folderDialog.ShowNewFolderButton = $true
+
+if ($folderDialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+    Write-Host "Export cancelled by user." -ForegroundColor Yellow
+    return
+}
+Write-Host "`nPlease Select a folder to save the CSV files." -ForegroundColor Green
+$runPath = $folderDialog.SelectedPath
+
+Write-Host "`nPlease wait, gathering system information..." -ForegroundColor Green
+
 $computerSystem = Get-CimInstance Win32_ComputerSystem
 $os             = Get-CimInstance Win32_OperatingSystem
 $cpu            = Get-CimInstance Win32_Processor | Select-Object -First 1
@@ -68,13 +83,12 @@ $info = [PSCustomObject]@{
     "Recovery Key" = $recoveryKey
 }
 
-$timestamp = Get-Date -Format ddMMyy-HHmmss
+# System Filename with timestamp and save variables
+$timestamp  = Get-Date -Format ddMMyy-HHmmss
+$singlePath = Join-Path $runPath "$env:COMPUTERNAME-$timestamp.csv"
+$masterPath = Join-Path $runPath "AllSystems.csv"
 
-# Paths (current folder)
-$runPath     = (Get-Location).Path
-$singlePath  = Join-Path $runPath "$env:COMPUTERNAME-$timestamp.csv"
-$masterPath  = Join-Path $runPath "AllSystems.csv"
-
+Write-Host "`nExporting system information to CSV files..." -ForegroundColor Green
 # 1) Export per-machine file (overwrites each time)
 $info | Export-Csv $singlePath -NoTypeInformation
 
@@ -89,4 +103,8 @@ Write-Host "`nExported: "
 Write-Host $singlePath -ForegroundColor Cyan
 
 Write-Host "`nUpdated All Systems CSV: "
-Write-Host $masterPath -ForegroundColor Green
+Write-Host $masterPath -ForegroundColor Cyan
+Write-Host "`nDone!" -ForegroundColor Green
+
+# Open the folder automatically
+Invoke-Item $runPath
